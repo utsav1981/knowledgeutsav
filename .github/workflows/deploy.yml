@@ -4,16 +4,24 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      maintenance:
+        description: 'Maintenance mode'
+        required: true
+        type: choice
+        options:
+          - 'no change'
+          - enable
+          - disable
 
 jobs:
   deploy:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
-      administration: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -21,20 +29,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check maintenance mode
-        id: maintenance
+      - name: Enable maintenance mode
+        if: ${{ inputs.maintenance == 'enable' }}
+        run: |
+          touch .maintenance
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .maintenance
+          git diff --cached --quiet || git commit -m "chore: enable maintenance mode"
+          git push
+
+      - name: Disable maintenance mode
+        if: ${{ inputs.maintenance == 'disable' }}
         run: |
           if [ -f ".maintenance" ]; then
-            echo "active=true" >> $GITHUB_OUTPUT
-            echo "Maintenance mode is ON — deploying maintenance page."
-          else
-            echo "active=false" >> $GITHUB_OUTPUT
-            echo "Maintenance mode is OFF — deploying normal site."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git rm .maintenance
+            git commit -m "chore: disable maintenance mode"
+            git push
           fi
 
       - name: Swap in maintenance page
-        if: steps.maintenance.outputs.active == 'true'
-        run: cp maintenance.html index.html
+        run: |
+          if [ -f ".maintenance" ]; then
+            echo "Maintenance mode ON"
+            cp maintenance.html index.html
+          else
+            echo "Maintenance mode OFF"
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
