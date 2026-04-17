@@ -4,22 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      maintenance:
-        description: 'Maintenance mode'
-        required: true
-        type: choice
-        options:
-          - 'no change'
-          - enable
-          - disable
 
 jobs:
   deploy:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pages: write
       id-token: write
     environment:
@@ -29,34 +20,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable maintenance mode
-        if: ${{ inputs.maintenance == 'enable' }}
+      - name: Apply maintenance mode
         run: |
-          touch .maintenance
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .maintenance
-          git diff --cached --quiet || git commit -m "chore: enable maintenance mode"
-          git push
-
-      - name: Disable maintenance mode
-        if: ${{ inputs.maintenance == 'disable' }}
-        run: |
-          if [ -f ".maintenance" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git rm .maintenance
-            git commit -m "chore: disable maintenance mode"
-            git push
-          fi
-
-      - name: Swap in maintenance page
-        run: |
-          if [ -f ".maintenance" ]; then
-            echo "Maintenance mode ON"
+          if [ "${{ vars.MAINTENANCE_MODE }}" = "true" ]; then
+            echo "Maintenance mode ON — serving maintenance.html"
             cp maintenance.html index.html
           else
-            echo "Maintenance mode OFF"
+            echo "Maintenance mode OFF — serving index.html"
           fi
 
       - name: Setup Pages
