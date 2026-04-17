@@ -1,0 +1,47 @@
+name: Maintenance Mode
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Enable or disable maintenance mode'
+        required: true
+        type: choice
+        options:
+          - enable
+          - disable
+
+jobs:
+  toggle-maintenance:
+    name: Toggle Maintenance Mode
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable maintenance mode
+        if: ${{ inputs.action == 'enable' }}
+        run: |
+          touch .maintenance
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .maintenance
+          git commit -m "chore: enable maintenance mode"
+          git push
+          echo "Maintenance mode ENABLED. Next deploy will serve maintenance.html."
+
+      - name: Disable maintenance mode
+        if: ${{ inputs.action == 'disable' }}
+        run: |
+          if [ -f ".maintenance" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git rm .maintenance
+            git commit -m "chore: disable maintenance mode"
+            git push
+            echo "Maintenance mode DISABLED. Next deploy will serve index.html."
+          else
+            echo "Maintenance mode was already off — nothing to do."
+          fi
